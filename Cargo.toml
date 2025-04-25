@@ -1,0 +1,46 @@
+[package]
+name = "getmd"
+version = "0.1.0"
+edition = "2021"
+authors = ["Mohil Garg <mohil.garg13@gmail.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+worker = { version = "0.4.2", features = ['http'] }
+worker-macros = { version = "0.4.2", features = ['http'] }
+console_error_panic_hook = "0.1.1"
+serde = { version = "1.0", features = ["derive"], default-features = false }
+html5ever = { version = "0.26", default-features = false }
+markup5ever_rcdom = "0.2"
+lazy_static = "1.4"
+regex = { version = "1.9", default-features = false, features = ["std", "unicode-perl", "perf"] }
+url = "2.5.0"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+rand = { version = "0.8", features = ["small_rng", "getrandom"], default-features = false }
+getrandom = { version = "0.2", features = ["js"] }
+web-sys = { version = "0.3", features = ["Window"] }
+bumpalo = { version = "3.14", features = ["collections"] }
+futures = { version = "0.3", features = ["thread-pool"] }
+tokio = { version = "1.0", features = ["sync", "time"] }
+async-channel = "1.8"
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
+opt-level = 3
+panic = "abort"
+debug = false
+incremental = false
+rpath = false
+
+[profile.dev]
+opt-level = 1
+debug = true
+split-debuginfo = "unpacked"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ['-O4', '--enable-mutable-globals', '--precompute', '--dce']
