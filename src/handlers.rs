@@ -2,7 +2,7 @@ use worker::*;
 use crate::config::{ConvertRequest, ConvertConfig, CleaningRules};
 use crate::fetch::fetch_url_with_timeout;
 use crate::markdown::html_to_markdown;
-use crate::utils::add_cors_headers; // Import the CORS utility
+use crate::utils::add_cors_headers;
 
 pub async fn handle_conversion_request(mut req: Request) -> worker::Result<Response> {
     let request: ConvertRequest = match req.json().await {
@@ -10,7 +10,6 @@ pub async fn handle_conversion_request(mut req: Request) -> worker::Result<Respo
         Err(e) => {
             console_error!("JSON parsing error: {:?}", e);
             let resp = Response::error(format!("Invalid request format: {}", e), 400)?;
-             // Add CORS headers to error responses too
             return add_cors_headers(resp);
         }
     };
@@ -24,7 +23,7 @@ pub async fn handle_get_conversion_request(url: Url) -> worker::Result<Response>
         resp = resp.with_headers(Headers::from_iter([
             ("Content-Type", "text/plain; charset=utf-8"),
         ]));
-        return add_cors_headers(resp); // Add CORS headers here too
+        return add_cors_headers(resp);
     }
 
     let target_url = match url.query_pairs().find(|(key, _)| key == "url") {
@@ -35,7 +34,6 @@ pub async fn handle_get_conversion_request(url: Url) -> worker::Result<Response>
         }
     };
 
-    // Use default config for GET requests
     let request = ConvertRequest {
         url: target_url,
         config: ConvertConfig {
@@ -58,7 +56,6 @@ pub async fn handle_get_conversion_request(url: Url) -> worker::Result<Response>
 
 
 async fn handle_conversion(request: ConvertRequest) -> worker::Result<Response> {
-    // Clone the URL here for potential use in error logging after request is moved
     let url_for_logging = request.url.clone();
     console_log!("Processing URL: {}", url_for_logging);
 
@@ -66,29 +63,25 @@ async fn handle_conversion(request: ConvertRequest) -> worker::Result<Response> 
         Ok(markdown) => {
              let headers = Headers::from_iter([
                 ("Cache-Control", "public, max-age=3600"),
-                ("Content-Type", "text/markdown; charset=utf-8"), // Set correct content type
+                ("Content-Type", "text/markdown; charset=utf-8"),
             ]);
             let resp = Response::ok(markdown)?.with_headers(headers);
-            add_cors_headers(resp) // Add CORS headers
+            add_cors_headers(resp)
         },
         Err(e) => {
-            // Use the cloned URL for logging
             console_error!("Error during conversion for {}: {}", url_for_logging, e);
-            // Provide a more informative error response
              let status = if e.to_string().contains("HTTP error 404") { 404 }
                          else if e.to_string().contains("HTTP error 403") || e.to_string().contains("access denied") { 403 }
                          else if e.to_string().contains("HTTP error 503") || e.to_string().contains("Service unavailable") { 503 }
-                         else { 500 }; // Internal Server Error for other cases
+                         else { 500 };
              let error_message = format!("Failed to fetch or convert URL '{}': {}", url_for_logging, e);
              let resp = Response::error(error_message, status)?;
-             add_cors_headers(resp) // Add CORS headers to error responses too
+             add_cors_headers(resp)
         }
     }
 }
 
-// fetch_and_convert takes ownership of ConvertRequest
 async fn fetch_and_convert(req: ConvertRequest) -> worker::Result<String> {
     let html = fetch_url_with_timeout(&req.url, 10000).await?;
-    // Assuming html_to_markdown itself doesn't return Result, wrap its output
     Ok(html_to_markdown(&html, req.config).markdown)
 }

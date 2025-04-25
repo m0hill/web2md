@@ -494,7 +494,6 @@ impl<'a> MarkdownFormatter<'a> {
                         self.format_buffer.push_str(" |");
                     }
                 }
-                // Pad remaining columns if header row is shorter
                 for i in header_row.len()..col_count {
                      let padding = col_widths[i];
                      self.format_buffer.push(' ');
@@ -527,7 +526,6 @@ impl<'a> MarkdownFormatter<'a> {
                         self.format_buffer.push_str(" |");
                     }
                 }
-                 // Pad remaining columns if row is shorter
                 for i in row.len()..col_count {
                      let padding = col_widths[i];
                      self.format_buffer.push(' ');
@@ -580,20 +578,19 @@ impl<'a> MarkdownFormatter<'a> {
 
         let mut current_count = match list_type {
             ListType::Ordered(start) => start,
-            _ => 1, // Default start for unordered or if start is not specified
+            _ => 1,
         };
 
         for child in handle.children.borrow().iter() {
             if let NodeData::Element { ref name, .. } = child.data {
                 if name.local.as_ref() == "li" {
                     self.text_buffer.clear();
-                    // Calculate indent based on current stack depth for nested lists
                     let current_indent = self.list_type_stack.iter().fold(0, |acc, lt| {
                         acc + match lt {
                             ListType::Unordered => 2,
                             ListType::Ordered(_) => 3,
                         }
-                    }) - match list_type { // Subtract current level's base indent before adding prefix
+                    }) - match list_type {
                         ListType::Unordered => 2,
                         ListType::Ordered(_) => 3,
                     };
@@ -606,40 +603,30 @@ impl<'a> MarkdownFormatter<'a> {
                             self.text_buffer.push_str("* ");
                         },
                         ListType::Ordered(_) => {
-                            // Corrected variable name from ¤t_count to current_count
                             self.text_buffer.push_str(&current_count.to_string());
                             self.text_buffer.push_str(". ");
                         },
                     };
 
                     self.content.push_str(&self.text_buffer);
-                     // Add a newline before processing child if content doesn't end with newline
-                    // This helps separate list item content properly
                     if !self.content.ends_with('\n') && !self.content.is_empty() {
                         self.add_newline();
                     }
                     self.process_node(child);
-                    // Ensure a newline after processing the list item's content
                     self.add_newline();
 
                     current_count += 1;
                 } else {
-                    // Handle non-<li> elements inside <ul>/<ol> if necessary,
-                    // otherwise they might get processed without proper list context.
-                    // For now, just process them as children.
                     self.process_node(child);
                 }
             } else {
-                 // Handle text nodes or comments directly inside <ul>/<ol>
                  self.process_node(child);
             }
         }
 
         self.block_stack.pop();
         self.list_type_stack.pop();
-        // Indent level is managed by stack, no need to subtract manually here
-        // self.indent_level -= match list_type { ... };
-        self.add_newline(); // Add a newline after the list finishes
+        self.add_newline();
     }
 
     fn extract_metadata(&mut self, _handle: &Handle, attrs: &RefCell<Vec<html5ever::Attribute>>) {
@@ -647,8 +634,6 @@ impl<'a> MarkdownFormatter<'a> {
         let mut name_value = None;
         let mut content_value = None;
 
-        // Need to handle cases like <meta name="description" content="...">
-        // and <meta property="og:title" content="...">
         for attr in attrs.borrow().iter() {
             match attr.name.local.as_ref() {
                 "property" => property_value = Some(attr.value.to_string()),
@@ -673,7 +658,6 @@ impl<'a> MarkdownFormatter<'a> {
                      "description" if self.metadata.description.is_none() => self.metadata.description = Some(Cow::Owned(content)),
                      "author" if self.metadata.author.is_none() => self.metadata.author = Some(Cow::Owned(content)),
                      "keywords" => {
-                         // Split keywords and add as tags if not already present
                          for keyword in content.split(',') {
                              let trimmed_keyword = keyword.trim();
                              if !trimmed_keyword.is_empty() && !self.metadata.tags.iter().any(|t| t == trimmed_keyword) {
@@ -700,7 +684,6 @@ impl<'a> MarkdownFormatter<'a> {
     }
 
     fn add_double_newline(&mut self) {
-        // Ensure there are exactly two newlines, trimming excess first
         while self.content.ends_with('\n') {
             self.content.pop();
         }
@@ -711,24 +694,18 @@ impl<'a> MarkdownFormatter<'a> {
     fn result(mut self) -> HtmlConversionResult {
         let mut final_content = String::with_capacity(
             self.content.len() +
-            if self.config.include_metadata { 1000 } else { 0 } // Estimate metadata size
+            if self.config.include_metadata { 1000 } else { 0 }
         );
 
         if self.config.include_metadata {
-             // Add title from <title> tag if OG title wasn't found
-             // This needs access to the DOM root, which isn't easily available here.
-             // Consider extracting title earlier or passing the DOM.
-             // For now, relies only on meta tags.
             final_content.push_str(self.metadata.format_metadata());
         }
 
-        // Trim starting/ending whitespace from the main content before adding
         let trimmed_content = self.content.trim();
         final_content.push_str(trimmed_content);
 
 
         let markdown = if self.config.clean_whitespace && !self.config.cleaning_rules.preserve_line_breaks {
-            // Consolidate multiple blank lines into single blank lines (max two newlines)
             let mut cleaned = String::with_capacity(final_content.len());
             let mut newline_count = 0;
             for c in final_content.chars() {
@@ -738,14 +715,13 @@ impl<'a> MarkdownFormatter<'a> {
                      newline_count = 0;
                  }
 
-                 // Allow up to two consecutive newlines
                  if newline_count <= 2 {
                      cleaned.push(c);
                  }
             }
-            cleaned.trim().to_string() // Trim final whitespace
+            cleaned.trim().to_string()
         } else {
-            final_content.trim().to_string() // Just trim final whitespace
+            final_content.trim().to_string()
         };
 
         HtmlConversionResult {
@@ -759,11 +735,10 @@ pub fn html_to_markdown(html: &str, config: ConvertConfig) -> HtmlConversionResu
     let dom = parse_document(RcDom::default(), Default::default())
         .from_utf8()
         .read_from(&mut html.as_bytes())
-        .expect("Failed to parse HTML"); // Use expect for clearer error on parsing failure
+        .expect("Failed to parse HTML");
 
     let mut formatter = MarkdownFormatter::new(config);
 
-    // Find title tag specifically if metadata.title is still None
     if formatter.config.include_metadata && formatter.metadata.title.is_none() {
         find_title_tag(&dom.document, &mut formatter.metadata);
     }
@@ -773,28 +748,25 @@ pub fn html_to_markdown(html: &str, config: ConvertConfig) -> HtmlConversionResu
     formatter.result()
 }
 
-// Helper function to find the <title> tag content
 fn find_title_tag(handle: &Handle, metadata: &mut MetadataHandler) {
     match &handle.data {
         NodeData::Element { name, .. } if name.local.as_ref() == "title" => {
-            // Extract text content from the title tag
             let mut title_content = String::new();
             extract_text(handle, &mut title_content);
             if !title_content.is_empty() && metadata.title.is_none() {
                 metadata.title = Some(Cow::Owned(title_content.trim().to_string()));
             }
-            return; // Stop searching once title is found
+            return;
         }
         _ => {}
     }
 
     for child in handle.children.borrow().iter() {
-         if metadata.title.is_some() { break; } // Stop if already found in a child
+         if metadata.title.is_some() { break; }
         find_title_tag(child, metadata);
     }
 }
 
-// Helper to extract text recursively
 fn extract_text(handle: &Handle, buffer: &mut String) {
     match &handle.data {
         NodeData::Text { contents } => {
@@ -805,6 +777,6 @@ fn extract_text(handle: &Handle, buffer: &mut String) {
                  extract_text(child, buffer);
              }
         }
-        _ => {} // Ignore comments, processing instructions, etc.
+        _ => {}
     }
 }

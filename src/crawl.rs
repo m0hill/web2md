@@ -9,7 +9,7 @@ use url::Url;
 use regex::Regex;
 use lazy_static::lazy_static;
 
-use crate::config::CrawlRequest; // Keep CrawlRequest
+use crate::config::CrawlRequest;
 use crate::fetch::fetch_url_with_timeout;
 use crate::markdown::html_to_markdown;
 
@@ -58,7 +58,6 @@ pub async fn handle_crawl(request: CrawlRequest) -> worker::Result<Vec<String>> 
         let url_tx_worker = Arc::clone(&url_tx_clone);
         let max_depth_worker = request.max_depth;
         let limit_worker = request.limit;
-        // *** Use the follow_relative flag ***
         let follow_relative_worker = request.follow_relative;
         let base_domain_worker = base_domain.clone();
         let results_counter_worker = Arc::clone(&results_counter);
@@ -122,46 +121,36 @@ pub async fn handle_crawl(request: CrawlRequest) -> worker::Result<Vec<String>> 
                             let base_url_for_join = Url::parse(&current_url).ok();
 
                             for link in conversion_result.links {
-                                // *** Check if the link is absolute ***
                                 let is_absolute = URL_REGEX.is_match(&link);
 
-                                // *** Decide whether to process the link based on follow_relative ***
                                 let absolute_url_str = if is_absolute {
-                                    // Already absolute, use as is (after domain/scheme check)
                                     Some(link.clone())
                                 } else if follow_relative_worker {
-                                    // It's relative AND we should follow relatives
                                     match base_url_for_join {
                                         Some(ref base) => base.join(&link).ok().map(|u| u.to_string()),
                                         None => {
                                              console_log!("Could not parse base URL '{}' to resolve relative link '{}'", current_url, link);
-                                             None // Skip if base URL is invalid
+                                             None
                                         }
                                     }
                                 } else {
-                                    // It's relative and we should NOT follow relatives
                                     console_log!("Skipping relative link (follow_relative=false): {}", link);
-                                    None // Skip
+                                    None
                                 };
 
-                                // *** Process the absolute URL string if we have one ***
                                 if let Some(absolute_url) = absolute_url_str {
-                                    // Re-parse to easily check domain and scheme
                                     if let Ok(abs_parsed) = Url::parse(&absolute_url) {
-                                        // Check domain filter
                                         if let Some(ref domain_filter) = base_domain_worker {
                                             if abs_parsed.domain() != Some(domain_filter.as_str()) {
                                                 console_log!("Skipping external link: {}", absolute_url);
                                                 continue;
                                             }
                                         }
-                                        // Check scheme filter
                                         if abs_parsed.scheme() != "http" && abs_parsed.scheme() != "https" {
                                             console_log!("Skipping non-HTTP(S) link: {}", absolute_url);
                                             continue;
                                         }
 
-                                        // If all checks pass, proceed with visited check and queueing
                                         let mut visited_set = visited_worker.lock().await;
                                         if visited_set.insert(absolute_url.clone()) {
                                             let current_count = *results_counter_worker.lock().await;
@@ -173,7 +162,6 @@ pub async fn handle_crawl(request: CrawlRequest) -> worker::Result<Vec<String>> 
                                                 }
                                             } else {
                                                 console_log!("Limit reached, stopping further URL queueing from {}", current_url);
-                                                // break; // Optionally break inner loop
                                             }
                                         }
                                     } else {
