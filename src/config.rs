@@ -22,9 +22,13 @@ pub struct CrawlRequest {
 pub struct ConvertConfig {
     pub include_links: bool,
     pub clean_whitespace: bool,
+    #[serde(default)]
     pub cleaning_rules: CleaningRules,
+    #[serde(default)]
     pub preserve_headings: bool,
+    #[serde(default)]
     pub include_metadata: bool,
+    #[serde(default)]
     pub max_heading_level: u8,
 }
 
