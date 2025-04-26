@@ -4,5 +4,7 @@ compatibility_date = "2024-11-07"
 
 route = { pattern = "scrape.mohil.dev/*", zone_name = "mohil.dev" }
 
+preview_urls = false
+
 [build]
 command = "cargo install -q worker-build && worker-build --release"
