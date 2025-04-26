@@ -62,7 +62,7 @@ async fn handle_conversion(request: ConvertRequest) -> worker::Result<Response> 
     match fetch_and_convert(request).await {
         Ok(markdown) => {
              let headers = Headers::from_iter([
-                ("Cache-Control", "public, max-age=3600"),
+                ("Cache-Control", "no-store"),
                 ("Content-Type", "text/markdown; charset=utf-8"),
             ]);
             let resp = Response::ok(markdown)?.with_headers(headers);
