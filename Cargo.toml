@@ -23,9 +23,7 @@ rand = { version = "0.8", features = ["small_rng", "getrandom"], default-feature
 getrandom = { version = "0.2", features = ["js"] }
 web-sys = { version = "0.3", features = ["Window"] }
 bumpalo = { version = "3.14", features = ["collections"] }
-futures = { version = "0.3", features = ["thread-pool"] }
-tokio = { version = "1.0", features = ["sync", "time"] }
-async-channel = "1.8"
+futures = { version = "0.3" }
 
 [profile.release]
 lto = true
