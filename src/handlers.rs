@@ -1,5 +1,5 @@
 use worker::*;
-use crate::config::{ConvertRequest, ConvertConfig, CleaningRules};
+use crate::config::ConvertRequest;
 use crate::fetch::fetch_url_with_timeout;
 use crate::markdown::html_to_markdown;
 use crate::utils::add_cors_headers;
@@ -16,46 +16,7 @@ pub async fn handle_conversion_request(mut req: Request) -> worker::Result<Respo
     handle_conversion(request).await
 }
 
-
-pub async fn handle_get_conversion_request(url: Url) -> worker::Result<Response> {
-     if url.query().is_none() {
-        let mut resp = Response::ok("Please provide a URL parameter. Example: /?url=https://example.com")?;
-        resp = resp.with_headers(Headers::from_iter([
-            ("Content-Type", "text/plain; charset=utf-8"),
-        ]));
-        return add_cors_headers(resp);
-    }
-
-    let target_url = match url.query_pairs().find(|(key, _)| key == "url") {
-        Some((_, value)) => value.to_string(),
-        None => {
-             let resp = Response::error("Missing 'url' parameter", 400)?;
-             return add_cors_headers(resp);
-        }
-    };
-
-    let request = ConvertRequest {
-        url: target_url,
-        config: ConvertConfig {
-            include_links: true,
-            clean_whitespace: true,
-            cleaning_rules: CleaningRules {
-                remove_scripts: true,
-                remove_styles: true,
-                remove_comments: true,
-                preserve_line_breaks: true,
-            },
-            preserve_headings: true,
-            include_metadata: true,
-            max_heading_level: 6,
-        },
-    };
-
-    handle_conversion(request).await
-}
-
-
-async fn handle_conversion(request: ConvertRequest) -> worker::Result<Response> {
+pub async fn handle_conversion(request: ConvertRequest) -> worker::Result<Response> {
     let url_for_logging = request.url.clone();
     console_log!("Processing URL: {}", url_for_logging);
 
