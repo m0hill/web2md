@@ -176,9 +176,3 @@ npx wrangler dev
     ```
 
     This will deploy the worker to the route specified in `wrangler.toml`.
-
------
-
-## Author
-
-  * **Mohil Garg** - [mohil.garg13@gmail.com](mailto:mohil.garg13@gmail.com)
